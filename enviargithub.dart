@@ -1,92 +1,96 @@
 import 'dart:io';
 
 void main() async {
-  print('==================================================');
-  print('🚀 Agente Interactivo para Enviar a GitHub');
-  print('==================================================\n');
+  print('=============================================');
+  print('    Agente para Enviar a GitHub (Dart)       ');
+  print('=============================================');
 
   // 1. Preguntar por el link del nuevo repositorio
-  stdout.write('🔗 1. Introduce el link del repositorio de GitHub (ej. https://github.com/usuario/repo.git):\n> ');
-  String? repoUrl = stdin.readLineSync()?.trim();
+  stdout.write('1. Ingresa el enlace (URL) del repositorio de GitHub: ');
+  String? repoLink = stdin.readLineSync()?.trim();
 
-  if (repoUrl == null || repoUrl.isEmpty) {
-    print('❌ Error: El link del repositorio es obligatorio para continuar.');
+  if (repoLink == null || repoLink.isEmpty) {
+    print('Error: El enlace del repositorio no puede estar vacío.');
     return;
   }
 
   // 2. Preguntar por el mensaje del commit
-  stdout.write('\n📝 2. Introduce el mensaje del commit:\n> ');
+  stdout.write('2. Ingresa el mensaje de commit (Ej. "Primer commit"): ');
   String? commitMessage = stdin.readLineSync()?.trim();
 
   if (commitMessage == null || commitMessage.isEmpty) {
-    commitMessage = 'Actualización del proyecto';
-    print('⚠️ No se introdujo mensaje de commit. Se usará "$commitMessage" por defecto.');
+    commitMessage = "Primer commit";
+    print('-> Usando mensaje de commit por defecto: "$commitMessage"');
   }
 
-  // 3. Preguntar por la rama (default: main)
-  stdout.write('\n🌿 3. Introduce el nombre de la rama (presiona Enter para usar "main" por defecto):\n> ');
-  String? branchNameInput = stdin.readLineSync()?.trim();
-  String branchName = (branchNameInput != null && branchNameInput.isNotEmpty) ? branchNameInput : 'main';
+  // 3. Preguntar por el nombre de la rama (por defecto 'main')
+  stdout.write('3. Ingresa el nombre de la rama (presiona Enter para usar "main"): ');
+  String? branchName = stdin.readLineSync()?.trim();
 
-  print('\n--------------------------------------------------');
-  print('📋 Resumen de Acción:');
-  print('   - Repositorio : $repoUrl');
-  print('   - Commit      : "$commitMessage"');
-  print('   - Rama        : $branchName');
-  print('--------------------------------------------------\n');
-
-  stdout.write('¿Deseas proceder con estos datos? (s/n): ');
+  if (branchName == null || branchName.isEmpty) {
+    branchName = "main";
+  }
+  
+  print('\n---------------------------------------------');
+  print('Resumen de la operación a realizar:');
+  print('URL Repositorio : $repoLink');
+  print('Mensaje Commit  : "$commitMessage"');
+  print('Rama a subir    : $branchName');
+  print('---------------------------------------------');
+  
+  stdout.write('\n¿Deseas continuar con estos datos? (s/n): ');
   String? confirm = stdin.readLineSync()?.trim().toLowerCase();
   
-  if (confirm != 's' && confirm != 'si') {
+  if (confirm != 's' && confirm != 'si' && confirm != 'y' && confirm != 'yes') {
     print('Operación cancelada por el usuario.');
     return;
   }
 
-  print('\n⚙️ Ejecutando comandos...\n');
+  print('\nIniciando secuencia Git para subir a GitHub...');
 
-  // Inicializar git si el directorio .git no existe
-  bool gitInitialized = await Directory('.git').exists();
-  if (!gitInitialized) {
-    await runCommand('git', ['init']);
+  // Función de ayuda para ejecutar comandos Git en la terminal
+  Future<void> runGitCommand(List<String> arguments, {bool ignoreError = false}) async {
+    print('> \$ git ${arguments.join(' ')}');
+    var result = await Process.run('git', arguments, runInShell: true);
+    
+    if (result.stdout.toString().trim().isNotEmpty) {
+      print(result.stdout);
+    }
+    
+    if (result.stderr.toString().trim().isNotEmpty && !ignoreError) {
+      // Git a veces envía advertencias y mensajes de éxito al stderr (ej. git push y git add)
+      // Lo imprimimos pero no necesariamente detenemos el programa a menos que falle.
+      print(result.stderr);
+    }
   }
 
-  // Agregar los archivos al área de preparación
-  await runCommand('git', ['add', '.']);
+  try {
+    // 1. Inicializar repositorio (seguro de correr múltiples veces)
+    await runGitCommand(['init']);
 
-  // Realizar el commit
-  await runCommand('git', ['commit', '-m', commitMessage]);
+    // 2. Agregar todos los archivos
+    await runGitCommand(['add', '.']);
 
-  // Renombrar/cambiar a la rama indicada
-  await runCommand('git', ['branch', '-M', branchName]);
+    // 3. Crear commit
+    await runGitCommand(['commit', '-m', commitMessage], ignoreError: true); // Ignore error in case "nothing to commit"
 
-  // Verificar si ya existe 'origin' para agregar o actualizar la URL
-  var checkRemote = await Process.run('git', ['remote']);
-  if (checkRemote.stdout.toString().contains('origin')) {
-    await runCommand('git', ['remote', 'set-url', 'origin', repoUrl]);
-  } else {
-    await runCommand('git', ['remote', 'add', 'origin', repoUrl]);
+    // 4. Cambiar a la rama indicada
+    await runGitCommand(['branch', '-M', branchName]);
+
+    // 5. Configurar o actualizar el origen remoto
+    // Primero intentamos remover cualquier origen previo (ignorado al dar error si no existe)
+    await runGitCommand(['remote', 'remove', 'origin'], ignoreError: true);
+    // Luego agregamos el nuevo
+    await runGitCommand(['remote', 'add', 'origin', repoLink]);
+
+    // 6. Push a GitHub
+    await runGitCommand(['push', '-u', 'origin', branchName]);
+
+    print('\n=============================================');
+    print('    ¡Proyecto enviado a GitHub exitosamente! ');
+    print('=============================================');
+  } catch (e) {
+    print('\n[X] Ocurrió un error inesperado al ejecutar comandos Git: $e');
+    print('Por favor, asegúrate de tener Git instalado y de contar con los permisos necesarios.');
   }
-
-  // Realizar el push a la rama
-  print('\n📤 Enviando archivos a GitHub...');
-  var pushResult = await runCommand('git', ['push', '-u', 'origin', branchName]);
-  
-  if (pushResult == 0) {
-    print('\n✅ ¡Repositorio enviado a GitHub con éxito!');
-  } else {
-    print('\n❌ Hubo un error al enviar el repositorio a GitHub o no hay cambios nuevos para subir.');
-  }
-}
-
-/// Función de ayuda para ejecutar comandos y mostrar la salida en tiempo real.
-Future<int> runCommand(String executable, List<String> arguments) async {
-  print('> \$ $executable ${arguments.join(' ')}');
-  var process = await Process.start(executable, arguments, runInShell: true);
-  
-  // Conectar las secuencias de salida estándar y de error para verlas en consola
-  stdout.addStream(process.stdout);
-  stderr.addStream(process.stderr);
-  
-  return await process.exitCode;
 }
