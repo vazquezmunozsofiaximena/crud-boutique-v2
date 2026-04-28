@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "476796278010",
+    "project_id": "bdcrudboutique",
+    "storage_bucket": "bdcrudboutique.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:476796278010:android:afd0086e77dbeef4c7e543",
+        "android_client_info": {
+          "package_name": "com.example.crudboutique"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDsHiDv9Mbt8NrSHy7rBOHLSc2L-DE7IIY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
